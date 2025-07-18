@@ -1,55 +1,82 @@
-import { createContext, useReducer, useContext } from 'react';
+import { createContext, useReducer, useEffect, useContext } from "react";
 
-const TodoContext = createContext();
+export const TodoContext = createContext();
 
 const initialState = {
-  todos: [],
-  nextId: 1
+  todos: []
 };
+
+const init = () => {
+  const stored = localStorage.getItem("todos");
+  return {
+    todos: stored ? JSON.parse(stored) : []
+  };
+};
+
+let nextId = 1;
 
 function todoReducer(state, action) {
   switch (action.type) {
-    case 'todoAdded':
+    case "todoAdded":
       return {
         ...state,
         todos: [
           ...state.todos,
-          { id: state.nextId, text: action.payload, completed: false }
-        ],
-        nextId: state.nextId + 1
+          { id: nextId++, text: action.payload, completed: false }
+        ]
       };
 
-    case 'todoToggled':
+    case "todoToggled":
       return {
         ...state,
-        todos: state.todos.map(todo =>
+        todos: state.todos.map((todo) =>
           todo.id === action.payload
             ? { ...todo, completed: !todo.completed }
             : todo
         )
       };
 
-    case 'todoRemoved':
+    case "todoRemoved":
       return {
         ...state,
-        todos: state.todos.filter(todo => todo.id !== action.payload)
+        todos: state.todos.filter((todo) => todo.id !== action.payload)
+      };
+
+    case "todoEdited":
+      return {
+        ...state,
+        todos: state.todos.map((todo) =>
+          todo.id === action.payload.id
+            ? { ...todo, text: action.payload.text }
+            : todo
+        )
+      };
+
+    case "clearCompleted":
+      return {
+        ...state,
+        todos: state.todos.filter((todo) => !todo.completed)
       };
 
     default:
-      return state;
+      throw new Error(`Unknown action type: ${action.type}`);
   }
 }
 
-export function TodoProvider({ children }) {
-  const [state, dispatch] = useReducer(todoReducer, initialState);
 
+export const TodoProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(todoReducer, initialState, init);
+
+  useEffect(() => {
+    localStorage.setItem("todos", JSON.stringify(state.todos));
+  }, [state.todos]);
+
+  const value = { state, dispatch };
   return (
-    <TodoContext.Provider value={{ state, dispatch }}>
+    <TodoContext.Provider value={value}>
       {children}
     </TodoContext.Provider>
   );
-}
+};
 
-export function useTodos() {
-  return useContext(TodoContext);
-}
+export const useTodos = () => useContext(TodoContext);
